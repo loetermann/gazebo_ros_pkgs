@@ -23,6 +23,7 @@
 #include <gazebo/common/Events.hh>
 #include <gazebo/gazebo_config.h>
 #include "gazebo_ros_api_plugin.h"
+#include <map>
 
 namespace gazebo
 {
@@ -552,6 +553,10 @@ bool GazeboRosApiPlugin::spawnURDFModel(gazebo_msgs::SpawnModel::Request &req,
 
   // Now, replace package://xxx with the full path to the package
   {
+    // storage for already resolved package paths
+    std::map<std::string,std::string> package_path_dict;
+    std::map<std::string,std::string>::iterator it;
+
     std::string package_prefix("package://");
     size_t pos1 = model_xml.find(package_prefix,0);
     while (pos1 != std::string::npos)
@@ -565,8 +570,20 @@ bool GazeboRosApiPlugin::spawnURDFModel(gazebo_msgs::SpawnModel::Request &req,
       }
 
       std::string package_name = model_xml.substr(pos1+10,pos2-pos1-10);
+      std::string package_path;
+      // check if path already resolved
+      if ( (it = package_path_dict.find(package_name)) != package_path_dict.end())
+      {
+        package_path = it->second;
+        ROS_DEBUG_ONCE("Package name [%s] already resolved with path [%s]", package_name.c_str(), package_path.c_str());
+      }
+      else
+      {
+        package_path = ros::package::getPath(package_name);
+        package_path_dict[package_name] = package_path;
+      }
       //ROS_DEBUG("package name [%s]", package_name.c_str());
-      std::string package_path = ros::package::getPath(package_name);
+
       if (package_path.empty())
       {
         ROS_FATAL("Package[%s] does not have a path",package_name.c_str());
